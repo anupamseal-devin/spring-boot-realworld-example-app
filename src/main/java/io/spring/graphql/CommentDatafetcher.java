@@ -21,7 +21,7 @@ import io.spring.graphql.types.Article;
 import io.spring.graphql.types.Comment;
 import io.spring.graphql.types.CommentEdge;
 import io.spring.graphql.types.CommentsConnection;
-import java.util.HashMap;
+import java.util.Collections;
 import java.util.Map;
 import java.util.stream.Collectors;
 import lombok.AllArgsConstructor;
@@ -38,12 +38,7 @@ public class CommentDatafetcher {
     Comment commentResult = buildCommentResult(comment);
     return DataFetcherResult.<Comment>newResult()
         .data(commentResult)
-        .localContext(
-            new HashMap<String, Object>() {
-              {
-                put(comment.getId(), comment);
-              }
-            })
+        .localContext(Collections.singletonMap(comment.getId(), comment))
         .build();
   }
 
@@ -56,7 +51,7 @@ public class CommentDatafetcher {
       DgsDataFetchingEnvironment dfe) {
 
     if (first == null && last == null) {
-      throw new IllegalArgumentException("first 和 last 必须只存在一个");
+      throw new IllegalArgumentException("must provide either 'first' or 'last'");
     }
 
     User current = SecurityUtil.getCurrentUser().orElse(null);

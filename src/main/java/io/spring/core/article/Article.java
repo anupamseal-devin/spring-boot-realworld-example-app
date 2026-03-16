@@ -2,7 +2,6 @@ package io.spring.core.article;
 
 import static java.util.stream.Collectors.toList;
 
-import io.spring.Util;
 import java.util.HashSet;
 import java.util.List;
 import java.util.UUID;
@@ -10,6 +9,7 @@ import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.joda.time.DateTime;
+import org.springframework.util.StringUtils;
 
 @Getter
 @NoArgsConstructor
@@ -49,16 +49,16 @@ public class Article {
   }
 
   public void update(String title, String description, String body) {
-    if (!Util.isEmpty(title)) {
+    if (StringUtils.hasText(title)) {
       this.title = title;
       this.slug = toSlug(title);
       this.updatedAt = new DateTime();
     }
-    if (!Util.isEmpty(description)) {
+    if (StringUtils.hasText(description)) {
       this.description = description;
       this.updatedAt = new DateTime();
     }
-    if (!Util.isEmpty(body)) {
+    if (StringUtils.hasText(body)) {
       this.body = body;
       this.updatedAt = new DateTime();
     }
