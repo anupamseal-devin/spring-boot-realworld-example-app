@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spring Boot Modernization Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <style>
+        :root {
+            --color-bg: #f4f6f9;
+            --color-surface: #ffffff;
+            --color-primary: #1a3a5c;
+            --color-primary-light: #2c5282;
+            --color-accent: #3182ce;
+            --color-text: #1a202c;
+            --color-text-secondary: #4a5568;
+            --color-border: #e2e8f0;
+            --color-done: #38a169;
+            --color-done-bg: #f0fff4;
+            --color-pending: #d69e2e;
+            --color-pending-bg: #fffff0;
+            --color-critical: #e53e3e;
+            --color-critical-bg: #fff5f5;
+            --color-high: #dd6b20;
+            --color-medium: #d69e2e;
+            --color-low: #38a169;
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
+            --shadow-md: 0 4px 12px rgba(0,0,0,0.1);
+            --radius: 8px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: var(--color-bg);
+            color: var(--color-text);
+            line-height: 1.6;
+        }
+
+        .header {
+            background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-light) 100%);
+            color: #fff;
+            padding: 32px 40px;
+            box-shadow: var(--shadow-md);
+        }
+
+        .header h1 {
+            font-size: 28px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+
+        .header .subtitle {
+            font-size: 15px;
+            opacity: 0.85;
+            margin-top: 4px;
+        }
+
+        .header .meta {
+            display: flex;
+            gap: 24px;
+            margin-top: 12px;
+            font-size: 13px;
+            opacity: 0.75;
+        }
+
+        .container {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 32px 24px 64px;
+        }
+
+        .section-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--color-primary);
+            margin: 40px 0 16px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid var(--color-accent);
+            display: inline-block;
+        }
+
+        /* Executive Summary Cards */
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+            margin-top: 8px;
+        }
+
+        .card {
+            background: var(--color-surface);
+            border-radius: var(--radius);
+            padding: 20px 24px;
+            box-shadow: var(--shadow-sm);
+            border-left: 4px solid var(--color-accent);
+            transition: box-shadow 0.2s;
+        }
+
+        .card:hover { box-shadow: var(--shadow-md); }
+
+        .card .label {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--color-text-secondary);
+            font-weight: 600;
+        }
+
+        .card .value {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--color-primary);
+            margin: 4px 0 2px;
+        }
+
+        .card .detail {
+            font-size: 13px;
+            color: var(--color-text-secondary);
+        }
+
+        .card.done { border-left-color: var(--color-done); }
+        .card.pending { border-left-color: var(--color-pending); }
+        .card.critical { border-left-color: var(--color-critical); }
+
+        /* Phase Progress */
+        .phase-track {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-top: 8px;
+        }
+
+        .phase-row {
+            display: grid;
+            grid-template-columns: 180px 1fr 100px 80px;
+            align-items: center;
+            gap: 16px;
+            background: var(--color-surface);
+            border-radius: var(--radius);
+            padding: 14px 20px;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .phase-name {
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .phase-bar-container {
+            position: relative;
+            height: 28px;
+            background: #edf2f7;
+            border-radius: 14px;
+            overflow: hidden;
+        }
+
+        .phase-bar {
+            height: 100%;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 600;
+            color: #fff;
+            transition: width 0.6s ease;
+        }
+
+        .phase-bar.done { background: var(--color-done); }
+        .phase-bar.medium { background: var(--color-pending); }
+        .phase-bar.high { background: var(--color-critical); }
+
+        .phase-sessions {
+            font-size: 13px;
+            color: var(--color-text-secondary);
+            text-align: center;
+        }
+
+        .phase-files {
+            font-size: 13px;
+            color: var(--color-text-secondary);
+            text-align: center;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .badge-done { background: var(--color-done-bg); color: var(--color-done); }
+        .badge-pending { background: var(--color-pending-bg); color: var(--color-pending); }
+        .badge-critical { background: var(--color-critical-bg); color: var(--color-critical); }
+
+        /* Charts */
+        .chart-container {
+            background: var(--color-surface);
+            border-radius: var(--radius);
+            padding: 24px;
+            box-shadow: var(--shadow-sm);
+            margin-top: 8px;
+        }
+
+        .chart-wrapper {
+            position: relative;
+            max-height: 400px;
+        }
+
+        .chart-note {
+            margin-top: 16px;
+            padding: 12px 16px;
+            background: #ebf8ff;
+            border-left: 4px solid var(--color-accent);
+            border-radius: 4px;
+            font-size: 13px;
+            color: var(--color-primary);
+        }
+
+        /* Flowchart */
+        .flowchart {
+            background: var(--color-surface);
+            border-radius: var(--radius);
+            padding: 32px;
+            box-shadow: var(--shadow-sm);
+            margin-top: 8px;
+            overflow-x: auto;
+        }
+
+        .flow-svg {
+            display: block;
+            margin: 0 auto;
+        }
+
+        .flow-legend {
+            display: flex;
+            gap: 24px;
+            justify-content: center;
+            margin-top: 20px;
+            font-size: 13px;
+            color: var(--color-text-secondary);
+        }
+
+        .flow-legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .flow-legend-swatch {
+            width: 16px;
+            height: 16px;
+            border-radius: 3px;
+        }
+
+        /* Tables */
+        .table-wrapper {
+            background: var(--color-surface);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-sm);
+            overflow-x: auto;
+            margin-top: 8px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        thead {
+            background: var(--color-primary);
+            color: #fff;
+        }
+
+        th {
+            padding: 12px 16px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        td {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--color-border);
+        }
+
+        tbody tr:hover { background: #f7fafc; }
+
+        .severity-critical {
+            color: var(--color-critical);
+            font-weight: 600;
+        }
+
+        .severity-high {
+            color: var(--color-high);
+            font-weight: 600;
+        }
+
+        .severity-medium {
+            color: var(--color-medium);
+            font-weight: 600;
+        }
+
+        .severity-low {
+            color: var(--color-low);
+            font-weight: 600;
+        }
+
+        .likelihood-high { background: #fff5f5; }
+        .likelihood-medium { background: #fffff0; }
+        .likelihood-low { background: #f0fff4; }
+
+        /* Responsive */
+        @media (max-width: 900px) {
+            .phase-row {
+                grid-template-columns: 1fr;
+                gap: 8px;
+            }
+            .cards-grid {
+                grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            }
+            .header { padding: 24px 20px; }
+            .container { padding: 20px 16px 48px; }
+        }
+
+        /* Print */
+        @media print {
+            body { background: #fff; font-size: 12px; }
+            .header {
+                background: var(--color-primary) !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            .card, .chart-container, .table-wrapper, .flowchart, .phase-row {
+                box-shadow: none;
+                border: 1px solid #ddd;
+                break-inside: avoid;
+            }
+            .section-title { break-after: avoid; }
+            .container { max-width: 100%; padding: 16px; }
+            .phase-bar, .badge, thead {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h1>Spring Boot Modernization Dashboard</h1>
+    <div class="subtitle">RealWorld Example App &mdash; Assessment &amp; Execution Plan</div>
+    <div class="meta">
+        <span>Repository: anupamseal-devin/spring-boot-realworld-example-app</span>
+        <span>Last Updated: <span id="timestamp"></span></span>
+    </div>
+</div>
+
+<div class="container">
+
+    <!-- Section 1: Executive Summary -->
+    <h2 class="section-title">Executive Summary</h2>
+    <div class="cards-grid">
+        <div class="card pending">
+            <div class="label">Java Version</div>
+            <div class="value">11 &rarr; 17/21</div>
+            <div class="detail">Platform upgrade required</div>
+        </div>
+        <div class="card pending">
+            <div class="label">Spring Boot</div>
+            <div class="value">2.6.3 &rarr; 3.4.x</div>
+            <div class="detail">Major version migration</div>
+        </div>
+        <div class="card">
+            <div class="label">Total Files in Scope</div>
+            <div class="value">97+</div>
+            <div class="detail">91 Java + 6 XML + supporting</div>
+        </div>
+        <div class="card done">
+            <div class="label">Phases Completed</div>
+            <div class="value">1 / 5</div>
+            <div class="detail">Phase 0 complete</div>
+        </div>
+        <div class="card pending">
+            <div class="label">Devin Sessions</div>
+            <div class="value">1 / 8</div>
+            <div class="detail">1 completed, 7 remaining</div>
+        </div>
+    </div>
+
+    <!-- Section 2: Phase Progress Tracker -->
+    <h2 class="section-title">Phase Progress Tracker</h2>
+    <div class="phase-track">
+        <div class="phase-row">
+            <div class="phase-name">Phase 0 <span class="badge badge-done">Done</span></div>
+            <div class="phase-bar-container">
+                <div class="phase-bar done" style="width: 100%;">Low-Complexity Quick Wins</div>
+            </div>
+            <div class="phase-sessions">1 session</div>
+            <div class="phase-files">15 files</div>
+        </div>
+        <div class="phase-row">
+            <div class="phase-name">Phase 1 <span class="badge badge-pending">Pending</span></div>
+            <div class="phase-bar-container">
+                <div class="phase-bar medium" style="width: 0%;"></div>
+            </div>
+            <div class="phase-sessions">1 session</div>
+            <div class="phase-files">~3 files</div>
+        </div>
+        <div class="phase-row">
+            <div class="phase-name">Phase 2 <span class="badge badge-critical">Critical</span></div>
+            <div class="phase-bar-container">
+                <div class="phase-bar high" style="width: 0%;"></div>
+            </div>
+            <div class="phase-sessions">3 sessions</div>
+            <div class="phase-files">~39 files</div>
+        </div>
+        <div class="phase-row">
+            <div class="phase-name">Phase 3 <span class="badge badge-pending">Pending</span></div>
+            <div class="phase-bar-container">
+                <div class="phase-bar medium" style="width: 0%;"></div>
+            </div>
+            <div class="phase-sessions">2 sessions</div>
+            <div class="phase-files">~29 files</div>
+        </div>
+        <div class="phase-row">
+            <div class="phase-name">Phase 4 <span class="badge badge-pending">Pending</span></div>
+            <div class="phase-bar-container">
+                <div class="phase-bar medium" style="width: 0%;"></div>
+            </div>
+            <div class="phase-sessions">1 session</div>
+            <div class="phase-files">~20 files</div>
+        </div>
+    </div>
+
+    <!-- Phase breakdown detail -->
+    <div class="chart-container" style="margin-top: 16px;">
+        <h3 style="font-size: 15px; font-weight: 600; color: var(--color-primary); margin-bottom: 12px;">Phase Breakdown</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Phase</th>
+                    <th>Description</th>
+                    <th>Sub-tasks</th>
+                    <th>Files</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Phase 0</strong></td>
+                    <td>Low-Complexity Quick Wins</td>
+                    <td>Dependency cleanup, config, boilerplate</td>
+                    <td>15</td>
+                    <td><span class="badge badge-done">Done</span></td>
+                </tr>
+                <tr>
+                    <td><strong>Phase 1</strong></td>
+                    <td>Platform Upgrade</td>
+                    <td>Java 11&rarr;17, Spring Boot 2.6&rarr;3.4, Gradle</td>
+                    <td>~3</td>
+                    <td><span class="badge badge-pending">Pending</span></td>
+                </tr>
+                <tr>
+                    <td><strong>Phase 2a</strong></td>
+                    <td>Core Migration &mdash; javax&rarr;jakarta</td>
+                    <td>Namespace migration across 21 files</td>
+                    <td>21</td>
+                    <td><span class="badge badge-pending">Pending</span></td>
+                </tr>
+                <tr>
+                    <td><strong>Phase 2b</strong></td>
+                    <td>Core Migration &mdash; Security Rewrite</td>
+                    <td>Spring Security 6 migration</td>
+                    <td>2</td>
+                    <td><span class="badge badge-critical">Critical</span></td>
+                </tr>
+                <tr>
+                    <td><strong>Phase 2c</strong></td>
+                    <td>Core Migration &mdash; Joda-Time</td>
+                    <td>Joda-Time &rarr; java.time migration</td>
+                    <td>16</td>
+                    <td><span class="badge badge-pending">Pending</span></td>
+                </tr>
+                <tr>
+                    <td><strong>Phase 3a</strong></td>
+                    <td>Framework Upgrades &mdash; DGS</td>
+                    <td>Netflix DGS 7.x&rarr;9.x migration</td>
+                    <td>12</td>
+                    <td><span class="badge badge-pending">Pending</span></td>
+                </tr>
+                <tr>
+                    <td><strong>Phase 3b</strong></td>
+                    <td>Framework Upgrades &mdash; MyBatis</td>
+                    <td>MyBatis Spring Boot 3 migration</td>
+                    <td>17</td>
+                    <td><span class="badge badge-pending">Pending</span></td>
+                </tr>
+                <tr>
+                    <td><strong>Phase 4</strong></td>
+                    <td>Test Validation</td>
+                    <td>Full regression test pass</td>
+                    <td>~20</td>
+                    <td><span class="badge badge-pending">Pending</span></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Section 3: Devin vs Manual -->
+    <h2 class="section-title">Devin vs Manual Engineering Effort</h2>
+    <div class="chart-container">
+        <div class="chart-wrapper">
+            <canvas id="effortChart"></canvas>
+        </div>
+        <div class="chart-note">
+            <strong>Key insight:</strong> Devin excels at mechanical/repetitive tasks (Phases 0, 1, 2a) where effort savings are 3&ndash;5&times;. 
+            Human review is most valuable for judgment-heavy tasks like Security rewrite (Phase 2b) and Test Validation (Phase 4).
+        </div>
+    </div>
+
+    <!-- Section 4: Execution Order Flowchart -->
+    <h2 class="section-title">Dependency &amp; Execution Order</h2>
+    <div class="flowchart">
+        <svg class="flow-svg" viewBox="0 0 860 340" width="860" height="340" xmlns="http://www.w3.org/2000/svg">
+            <!-- Definitions -->
+            <defs>
+                <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+                    <polygon points="0 0, 10 3.5, 0 7" fill="#718096"/>
+                </marker>
+                <filter id="shadow" x="-5%" y="-5%" width="110%" height="110%">
+                    <feDropShadow dx="1" dy="1" stdDeviation="2" flood-color="#00000020"/>
+                </filter>
+            </defs>
+
+            <!-- Phase 0 -->
+            <rect x="10" y="140" width="120" height="50" rx="8" fill="#38a169" filter="url(#shadow)"/>
+            <text x="70" y="162" text-anchor="middle" fill="#fff" font-size="12" font-weight="600">Phase 0</text>
+            <text x="70" y="178" text-anchor="middle" fill="#fff" font-size="10">Quick Wins</text>
+
+            <!-- Arrow Phase 0 -> Phase 1 -->
+            <line x1="130" y1="165" x2="170" y2="165" stroke="#718096" stroke-width="2" marker-end="url(#arrowhead)"/>
+
+            <!-- Phase 1 -->
+            <rect x="170" y="140" width="120" height="50" rx="8" fill="#d69e2e" filter="url(#shadow)"/>
+            <text x="230" y="162" text-anchor="middle" fill="#fff" font-size="12" font-weight="600">Phase 1</text>
+            <text x="230" y="178" text-anchor="middle" fill="#fff" font-size="10">Platform Upgrade</text>
+
+            <!-- Arrow Phase 1 -> Phase 2a (center) -->
+            <line x1="290" y1="155" x2="350" y2="85" stroke="#718096" stroke-width="2" marker-end="url(#arrowhead)"/>
+            <!-- Arrow Phase 1 -> Phase 2c (top parallel) -->
+            <line x1="290" y1="165" x2="350" y2="165" stroke="#718096" stroke-width="2" marker-end="url(#arrowhead)"/>
+            <!-- Arrow Phase 1 -> Phase 3a (bottom parallel) -->
+            <line x1="290" y1="175" x2="350" y2="245" stroke="#718096" stroke-width="2" marker-end="url(#arrowhead)"/>
+
+            <!-- Phase 2a (javax) -->
+            <rect x="350" y="60" width="140" height="50" rx="8" fill="#e53e3e" filter="url(#shadow)"/>
+            <text x="420" y="82" text-anchor="middle" fill="#fff" font-size="12" font-weight="600">Phase 2a</text>
+            <text x="420" y="98" text-anchor="middle" fill="#fff" font-size="10">javax &rarr; jakarta</text>
+
+            <!-- Phase 2c (Joda) -->
+            <rect x="350" y="140" width="140" height="50" rx="8" fill="#d69e2e" filter="url(#shadow)"/>
+            <text x="420" y="162" text-anchor="middle" fill="#fff" font-size="12" font-weight="600">Phase 2c</text>
+            <text x="420" y="178" text-anchor="middle" fill="#fff" font-size="10">Joda-Time</text>
+
+            <!-- Phase 3a (DGS) -->
+            <rect x="350" y="220" width="140" height="50" rx="8" fill="#d69e2e" filter="url(#shadow)"/>
+            <text x="420" y="242" text-anchor="middle" fill="#fff" font-size="12" font-weight="600">Phase 3a</text>
+            <text x="420" y="258" text-anchor="middle" fill="#fff" font-size="10">DGS Upgrade</text>
+
+            <!-- Arrow Phase 2a -> Phase 2b -->
+            <line x1="490" y1="85" x2="530" y2="85" stroke="#718096" stroke-width="2" marker-end="url(#arrowhead)"/>
+
+            <!-- Phase 2b (Security) -->
+            <rect x="530" y="60" width="140" height="50" rx="8" fill="#e53e3e" filter="url(#shadow)"/>
+            <text x="600" y="82" text-anchor="middle" fill="#fff" font-size="12" font-weight="600">Phase 2b</text>
+            <text x="600" y="98" text-anchor="middle" fill="#fff" font-size="10">Security Rewrite</text>
+
+            <!-- Phase 3b (MyBatis) - depends on Phase 2a -->
+            <line x1="490" y1="95" x2="530" y2="165" stroke="#718096" stroke-width="2" marker-end="url(#arrowhead)"/>
+            <rect x="530" y="140" width="140" height="50" rx="8" fill="#d69e2e" filter="url(#shadow)"/>
+            <text x="600" y="162" text-anchor="middle" fill="#fff" font-size="12" font-weight="600">Phase 3b</text>
+            <text x="600" y="178" text-anchor="middle" fill="#fff" font-size="10">MyBatis Upgrade</text>
+
+            <!-- Arrows to Phase 4 -->
+            <line x1="670" y1="85" x2="720" y2="145" stroke="#718096" stroke-width="2" marker-end="url(#arrowhead)"/>
+            <line x1="670" y1="165" x2="720" y2="155" stroke="#718096" stroke-width="2" marker-end="url(#arrowhead)"/>
+            <line x1="490" y1="165" x2="720" y2="155" stroke="#718096" stroke-width="1.5" stroke-dasharray="6,3" marker-end="url(#arrowhead)"/>
+            <line x1="490" y1="245" x2="720" y2="160" stroke="#718096" stroke-width="1.5" stroke-dasharray="6,3" marker-end="url(#arrowhead)"/>
+
+            <!-- Phase 4 -->
+            <rect x="720" y="130" width="130" height="50" rx="8" fill="#d69e2e" filter="url(#shadow)"/>
+            <text x="785" y="152" text-anchor="middle" fill="#fff" font-size="12" font-weight="600">Phase 4</text>
+            <text x="785" y="168" text-anchor="middle" fill="#fff" font-size="10">Test Validation</text>
+
+            <!-- Critical Path label -->
+            <text x="430" y="30" text-anchor="middle" fill="#e53e3e" font-size="11" font-weight="600">Critical Path: Phase 0 &rarr; 1 &rarr; 2a &rarr; 2b &rarr; 4</text>
+
+            <!-- Parallel label -->
+            <text x="420" y="300" text-anchor="middle" fill="#718096" font-size="11" font-style="italic">After Phase 1: Phases 2a, 2c, and 3a can execute in parallel</text>
+        </svg>
+        <div class="flow-legend">
+            <div class="flow-legend-item">
+                <div class="flow-legend-swatch" style="background: #38a169;"></div>
+                <span>Completed</span>
+            </div>
+            <div class="flow-legend-item">
+                <div class="flow-legend-swatch" style="background: #d69e2e;"></div>
+                <span>Medium Complexity</span>
+            </div>
+            <div class="flow-legend-item">
+                <div class="flow-legend-swatch" style="background: #e53e3e;"></div>
+                <span>High Complexity / Critical Path</span>
+            </div>
+            <div class="flow-legend-item">
+                <div class="flow-legend-swatch" style="background: #fff; border: 2px dashed #718096;"></div>
+                <span>Optional dependency</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Section 5: Risk Matrix -->
+    <h2 class="section-title">Risk Matrix</h2>
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Risk</th>
+                    <th>Likelihood</th>
+                    <th>Impact</th>
+                    <th>Mitigation</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr class="likelihood-high">
+                    <td><strong>DGS Breaking Changes</strong></td>
+                    <td><span class="severity-high">High</span></td>
+                    <td><span class="severity-high">High</span></td>
+                    <td>Pin DGS version; test all GraphQL resolvers and codegen output against schema; staged rollout</td>
+                </tr>
+                <tr class="likelihood-medium">
+                    <td><strong>Security Auth Bypass</strong></td>
+                    <td><span class="severity-medium">Medium</span></td>
+                    <td><span class="severity-critical">Critical</span></td>
+                    <td>Manual code review of SecurityConfig; comprehensive auth integration tests; penetration testing before deploy</td>
+                </tr>
+                <tr class="likelihood-medium">
+                    <td><strong>Joda Timezone Behavior</strong></td>
+                    <td><span class="severity-medium">Medium</span></td>
+                    <td><span class="severity-medium">Medium</span></td>
+                    <td>Validate timezone-sensitive date operations; compare Joda vs java.time output in edge cases; add timezone regression tests</td>
+                </tr>
+                <tr class="likelihood-low">
+                    <td><strong>MyBatis XML Compatibility</strong></td>
+                    <td><span class="severity-low">Low</span></td>
+                    <td><span class="severity-medium">Medium</span></td>
+                    <td>Test all MyBatis XML mapper queries; verify type handler compatibility; run full CRUD integration tests</td>
+                </tr>
+                <tr class="likelihood-medium">
+                    <td><strong>Flyway + SQLite</strong></td>
+                    <td><span class="severity-medium">Medium</span></td>
+                    <td><span class="severity-medium">Medium</span></td>
+                    <td>Test migration scripts against SQLite; consider H2 for CI; document any SQLite-specific DDL limitations</td>
+                </tr>
+                <tr class="likelihood-medium">
+                    <td><strong>Test Coupling</strong></td>
+                    <td><span class="severity-medium">Medium</span></td>
+                    <td><span class="severity-high">High</span></td>
+                    <td>Run full test suite after each phase; fix broken tests immediately; avoid accumulating test debt across phases</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Section 6: Outdated Dependencies -->
+    <h2 class="section-title">Outdated Dependencies</h2>
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Dependency</th>
+                    <th>Current Version</th>
+                    <th>Target Version</th>
+                    <th>Severity</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Spring Boot</td>
+                    <td>2.6.3</td>
+                    <td>3.4.x</td>
+                    <td><span class="severity-critical">Critical</span></td>
+                </tr>
+                <tr>
+                    <td>Java</td>
+                    <td>11</td>
+                    <td>17 / 21</td>
+                    <td><span class="severity-critical">Critical</span></td>
+                </tr>
+                <tr>
+                    <td>Spring Security</td>
+                    <td>5.6.x</td>
+                    <td>6.4.x</td>
+                    <td><span class="severity-critical">Critical</span></td>
+                </tr>
+                <tr>
+                    <td>javax.* namespace</td>
+                    <td>javax</td>
+                    <td>jakarta</td>
+                    <td><span class="severity-critical">Critical</span></td>
+                </tr>
+                <tr>
+                    <td>Netflix DGS</td>
+                    <td>7.x</td>
+                    <td>9.x</td>
+                    <td><span class="severity-high">High</span></td>
+                </tr>
+                <tr>
+                    <td>MyBatis Spring Boot</td>
+                    <td>2.x</td>
+                    <td>3.x</td>
+                    <td><span class="severity-high">High</span></td>
+                </tr>
+                <tr>
+                    <td>Joda-Time</td>
+                    <td>2.x</td>
+                    <td>java.time (JDK)</td>
+                    <td><span class="severity-high">High</span></td>
+                </tr>
+                <tr>
+                    <td>Flyway</td>
+                    <td>8.x</td>
+                    <td>10.x</td>
+                    <td><span class="severity-medium">Medium</span></td>
+                </tr>
+                <tr>
+                    <td>JJWT</td>
+                    <td>0.11.x</td>
+                    <td>0.12.x</td>
+                    <td><span class="severity-medium">Medium</span></td>
+                </tr>
+                <tr>
+                    <td>Gradle</td>
+                    <td>7.x</td>
+                    <td>8.x</td>
+                    <td><span class="severity-medium">Medium</span></td>
+                </tr>
+                <tr>
+                    <td>JUnit / Test Libs</td>
+                    <td>5.x (Spring Boot 2)</td>
+                    <td>5.x (Spring Boot 3)</td>
+                    <td><span class="severity-medium">Medium</span></td>
+                </tr>
+                <tr>
+                    <td>Jackson / JSON</td>
+                    <td>2.13.x</td>
+                    <td>2.17.x</td>
+                    <td><span class="severity-medium">Medium</span></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+</div>
+
+<script>
+    // Set timestamp
+    document.getElementById('timestamp').textContent = new Date().toLocaleString('en-US', {
+        year: 'numeric', month: 'long', day: 'numeric',
+        hour: '2-digit', minute: '2-digit', timeZoneName: 'short'
+    });
+
+    // Effort Comparison Chart
+    const ctx = document.getElementById('effortChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: [
+                'Phase 0\nQuick Wins',
+                'Phase 1\nPlatform',
+                'Phase 2a\njavax\u2192jakarta',
+                'Phase 2b\nSecurity',
+                'Phase 2c\nJoda-Time',
+                'Phase 3a\nDGS',
+                'Phase 3b\nMyBatis',
+                'Phase 4\nTests'
+            ],
+            datasets: [
+                {
+                    label: 'Devin (sessions)',
+                    data: [1, 1, 1, 1, 1, 1, 1, 1],
+                    backgroundColor: '#3182ce',
+                    borderRadius: 4,
+                    barPercentage: 0.7,
+                    categoryPercentage: 0.6
+                },
+                {
+                    label: 'Manual Equivalent (sessions)',
+                    data: [4, 2.5, 3.5, 1.75, 2.5, 1.75, 2, 1.25],
+                    backgroundColor: '#cbd5e0',
+                    borderRadius: 4,
+                    barPercentage: 0.7,
+                    categoryPercentage: 0.6
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: {
+                    position: 'top',
+                    labels: {
+                        font: { size: 13, weight: '600' },
+                        padding: 20,
+                        usePointStyle: true,
+                        pointStyle: 'rectRounded'
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const multipliers = ['3-5x', '2-3x', '3-4x', '1.5-2x', '2-3x', '1.5-2x', '2x', '1-1.5x'];
+                            if (context.datasetIndex === 1) {
+                                return `Manual: ${context.raw} sessions (${multipliers[context.dataIndex]} Devin effort)`;
+                            }
+                            return `Devin: ${context.raw} session`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 5,
+                    title: {
+                        display: true,
+                        text: 'Equivalent Effort (sessions)',
+                        font: { size: 13, weight: '600' },
+                        color: '#4a5568'
+                    },
+                    grid: { color: '#edf2f7' },
+                    ticks: { font: { size: 12 } }
+                },
+                x: {
+                    grid: { display: false },
+                    ticks: {
+                        font: { size: 11 },
+                        maxRotation: 0,
+                        autoSkip: false
+                    }
+                }
+            }
+        }
+    });
+</script>
+
+</body>
+</html>
